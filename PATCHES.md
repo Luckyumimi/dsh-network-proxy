@@ -72,7 +72,7 @@ does not provide an export named 'settingsNamespace'
 
 1.0.1 手写的整套取数逻辑全部删除：
 
-| 1.0.1 | 2.0.0 |
+| 1.0.1 | 2.0.0+ |
 | --- | --- |
 | `ctx.remote.settings.describe()` 手动取 namespace | `ctx.configForms.get('network-proxy')` |
 | 自己维护 `revision`、乐观锁、`generation` | form 内部处理 |
@@ -82,6 +82,19 @@ does not provide an export named 'settingsNamespace'
 | `inject: ['slots','locale','remote','remote.settings']` | `inject: ['slots','locale','configForms']` |
 
 改 mode 与 URL 时用一次 `form.mutate([...])`，避免两个字段落在不同 revision 上。
+
+#### 2.0.1：改注册到 `settings.section`
+
+2.0.0 注册的是 `settings.general.item` —— 那是「通用设置」页里追加的一行。行本身没有
+自己的标题栏，所在页面又因为插件把 `configure({ auto: false })` 关掉了自动表单，
+结果整个 `通用设置` 页接近空白，用户很难发现代理配置在哪。
+
+2.0.1 改为注册独立的 `settings.section`（`id: network-proxy`），在设置页左侧导航里有
+自己的入口，点进去是完整的模式选择卡片。这与 `dsh-disk-manager` 的做法一致。
+
+同时修掉 2.0.1 之前一个真实的可用性缺陷：表单为 `unavailable`（宿主没有提供该 ns）
+时组件 `return null`，即**整行静默消失**，用户完全无从判断插件是否加载。现在改为渲染
+一条明确的错误说明。
 
 ### `package.json`
 

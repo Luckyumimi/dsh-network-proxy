@@ -1,0 +1,16 @@
+# 依赖：本仓库以 link: 方式接入 DSH profile，自身不提交 node_modules
+# （其中的 junction 指向本机 profile，绝不能进仓库）
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 本地调试残留
+*.log
+*.bak
+*.bak-*

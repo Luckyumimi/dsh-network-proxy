@@ -270,5 +270,12 @@ export function apply(ctx, config) {
   }, 'network-proxy: teardown')
 }
 
-export default apply
+// Named exports only. A `default` export is fatal here: the cordis Loader's
+// unwrapExports() does `exports = exports.default ?? exports`, so a default
+// export replaces the whole module namespace with that single value. The
+// settings service reads `entry.fiber.runtime.Config` to build the form, and a
+// Config reached through a default-exported function does not exist — the entry
+// is then silently skipped by describe() and the settings page reports the ns as
+// unavailable. Official plugins (e.g. dsh-client-ui-theme) likewise export
+// `{ Config, apply }` with no default.
 export { parseWindowsProxyServer, readWindowsSystemProxy, validateSettings }

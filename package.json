@@ -1,6 +1,6 @@
 {
   "name": "dsh-network-proxy",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "DeepSeek Assistant 的网络代理管理插件：在设置页切换 跟随系统 / 手动代理 / 直连，即时生效。 Network proxy manager for DSH 0.2.x.",
   "private": true,
   "type": "module",

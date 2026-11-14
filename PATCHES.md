@@ -106,6 +106,74 @@ does not provide an export named 'settingsNamespace'
 - 新增 `engines.dsh: ">=0.2.0-rc.2"`。0.2.1-alpha.3 起兼容性检查**先读 `engines.dsh`**，
   命中就不再看 peer；写错范围会被直接拒绝安装。
 
+## 代理覆盖了哪些网络请求
+
+这决定了「换了代理之后哪些东西会变快」。0.2.x 里有三条完全不同的路径：
+
+### 1. Host 进程内的请求 —— 走全局 dispatcher（本插件管）
+
+本插件 `setGlobalDispatcher()` 安装的 undici dispatcher。凡是在 **Host 进程内**用
+`fetch`/`undici` 发的请求都走它：`web_search`、`web_fetch`、LLM 请求、插件自己的
+第三方 API 调用。三种模式在这里都生效。
+
+### 2. 子进程 —— 走 `dsh-http-proxy` 的启动期策略（**不是本插件**）
+
+这是关键差别。`@deepseek-ai/dsh-subprocess` 的 `scrubbedParentEnv()` 不从
+`process.env` 直接继承代理，而是调用 `@deepseek-ai/dsh-http-proxy` 的
+`proxyEnvironmentForChild()`，取的是 **Host 启动那一刻**解析出的 policy：
+
+```js
+const policy = active
+if (policy.source === 'none') return {}   // 启动时没代理 → 子进程也拿不到
+```
+
+所以：**插件页安装/更新插件所跑的 `pnpm` 子进程，用的是 DSH 启动时的代理，
+和在设置页里选什么无关。** 想让插件下载走代理，必须在启动 DSH 之前就把
+`HTTP_PROXY`/`HTTPS_PROXY` 放进环境变量。
+
+实测 `scrubbedParentEnv()` 在 manual 模式下的输出：
+
+| 变量 | 值 |
+| --- | --- |
+| `HTTP_PROXY` / `HTTPS_PROXY` | `http://127.0.0.1:7890` |
+| `http_proxy` / `https_proxy` | `undefined`（只写大写） |
+| `no_proxy` | `localhost,.localhost,127.0.0.1,...`（回环自动直连） |
+| `NODE_USE_ENV_PROXY` | `1`（Node 子进程据此读环境变量代理） |
+
+### 3. 本地回环 / webserver —— 不走代理
+
+`no_proxy` 已包含 `127.0.0.1`、`::1` 等。
+
+### 想让插件更新变快该怎么做
+
+插件检查更新与下载走 **pnpm 子进程**，因此：
+
+1. **启动 DSH 前**设好代理（最有效）：
+
+   ```powershell
+   $env:HTTP_PROXY='http://127.0.0.1:7890'
+   $env:HTTPS_PROXY='http://127.0.0.1:7890'
+   # 再启动 DSH
+   ```
+
+2. 或直接配置 pnpm（与 DSH 无关，最稳）：
+
+   ```powershell
+   pnpm config set proxy http://127.0.0.1:7890
+   pnpm config set https-proxy http://127.0.0.1:7890
+   ```
+
+3. 国内网络换 registry 往往比代理更快：
+
+   ```powershell
+   pnpm config set registry https://registry.npmmirror.com
+   ```
+
+   注意 `github:` 来源的插件不受 registry 影响，仍需要代理。
+
+> `direct` 模式会清空环境变量代理，因此也会影响子进程继承值。想在插件下载时保留
+> 代理，就不要选 direct。
+
 ## 离线实测（未触碰运行中的 Host）
 
 用真实 `undici` + 假 ctx 直接调用 `apply()`，跑通全链路：
